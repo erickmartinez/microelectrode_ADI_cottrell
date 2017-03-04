@@ -78,7 +78,7 @@ K0NORM = k0*(rpill*1e-4/Do) #
 #==============================================================================
 T = 50*50               # The number of time steps
 N = int(np.sqrt(T)*6)   # The number of points in the z direction
-M = int(N*RMAX/ZMAX)    # The number of points in the r direction
+M = int(1.4*N*RMAX/ZMAX)    # The number of points in the r direction
 
 hr = RMAX/M             # The delta r
 hz = ZMAX/N             # The delta z
@@ -142,7 +142,7 @@ print()
 #==============================================================================
 sinter = dt/tnorm
 snapshot_number = [0]
-tn =  2*dt
+tn =  dt
 print ('snapshot_0 at t = 0')
 snum = 1
 time = 0
@@ -305,14 +305,14 @@ def getA(row,E):
     else:
         SIZE = M
         starti = 1
-    p1 = (1-1/(2*starti)) if row <= ZPILL_idx else 3.0
+    p1 = 3.0#(1-1/(2*starti)) if row <= ZPILL_idx else 3.0
     aka1 = -ura*ka1
     aka2 = -ura*ka2
     bkb1 = -urb*kb1
     bkb2 = -urb*kb2
     # The diagonal elements for the matrix to the right of the electrode
-    a1_diags = [[-ura*(1-1/(2*(i+starti+1))) for i in range(SIZE-1)],[1.+2.0*ura for i in range(SIZE)],[-ura*(1+1/(2*(i+starti))) for i in range(SIZE-1)]]
-    b1_diags = [[-urb*(1-1/(2*(i+starti+1))) for i in range(SIZE-1)],[1.+2.0*urb for i in range(SIZE)],[-urb*(1+1/(2*(i+starti))) for i in range(SIZE-1)]]
+    a1_diags = [[-ura*(1-1/(2*(i+2))) for i in range(SIZE-1)],[1.+2.0*ura for i in range(SIZE)],[-ura*(1+1/(2*(i+1))) for i in range(SIZE-1)]]
+    b1_diags = [[-urb*(1-1/(2*(i+2))) for i in range(SIZE-1)],[1.+2.0*urb for i in range(SIZE)],[-urb*(1+1/(2*(i+1))) for i in range(SIZE-1)]]
     
     # At r = 0, (1/R)dC/dR -> 2(d^2C/dR^2):
     a1_diags[1][0] = (1.0+6.0*ura)
@@ -326,8 +326,8 @@ def getA(row,E):
         a1_diags[1][0] += aka1*p1
         b1_diags[1][0] += bkb1*p1
         # boundary conditions at rd (dC/dr = 0)
-        a1_diags[1][SIZE-1] -= ura*(1+1/(2*(SIZE+starti)))
-        b1_diags[1][SIZE-1] -= urb*(1+1/(2*(SIZE+starti)))
+        a1_diags[1][SIZE-1] -= ura*(1+1/(2*(SIZE)))
+        b1_diags[1][SIZE-1] -= urb*(1+1/(2*(SIZE)))
         # The submatrix for the reduced species
         a2_diags = [aka2*p1 if i == 0 else 0 for i in range(SIZE)]
         b2_diags = [bkb2*p1 if i == 0 else 0 for i in range(SIZE)]
@@ -337,8 +337,8 @@ def getA(row,E):
         a1_diags[1][0] -= p1*ura
         b1_diags[1][0] -= p1*urb
         # boundary conditions at the rd (dC/dr = 0)
-        a1_diags[1][SIZE-1] -= ura*(1+1/(2*(SIZE+starti)))
-        b1_diags[1][SIZE-1] -= urb*(1+1/(2*(SIZE+starti)))
+        a1_diags[1][SIZE-1] -= ura*(1+1/(2*(SIZE)))
+        b1_diags[1][SIZE-1] -= urb*(1+1/(2*(SIZE)))
                 
     
     A1 = diags(a1_diags,[-1,0,1])
