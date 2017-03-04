@@ -140,9 +140,9 @@ print()
 #==============================================================================
 # The number of simulation snapshots taken
 #==============================================================================
-sinter = 0.0004
+sinter = dt/tnorm
 snapshot_number = [0]
-tn =  sinter*tnorm
+tn =  2*dt
 print ('snapshot_0 at t = 0')
 snum = 1
 time = 0
@@ -305,37 +305,40 @@ def getA(row,E):
     else:
         SIZE = M
         starti = 1
-    p1 = (1-1/(2*starti))
+    p1 = (1-1/(2*starti)) if row <= ZPILL_idx else 3.0
     aka1 = -ura*ka1
     aka2 = -ura*ka2
     bkb1 = -urb*kb1
     bkb2 = -urb*kb2
-#
-    if row <= ZPILL_idx:
-        # The diagonal elements for the matrix to the right of the electrode
-        a1_diags = [[-ura*(1-1/(2*(i+starti+1))) for i in range(SIZE-1)],[1.+2.0*ura for i in range(SIZE)],[-ura*(1+1/(2*(i+starti))) for i in range(SIZE-1)]]
-        b1_diags = [[-urb*(1-1/(2*(i+starti+1))) for i in range(SIZE-1)],[1.+2.0*urb for i in range(SIZE)],[-urb*(1+1/(2*(i+starti))) for i in range(SIZE-1)]]
+    # The diagonal elements for the matrix to the right of the electrode
+    a1_diags = [[-ura*(1-1/(2*(i+starti+1))) for i in range(SIZE-1)],[1.+2.0*ura for i in range(SIZE)],[-ura*(1+1/(2*(i+starti))) for i in range(SIZE-1)]]
+    b1_diags = [[-urb*(1-1/(2*(i+starti+1))) for i in range(SIZE-1)],[1.+2.0*urb for i in range(SIZE)],[-urb*(1+1/(2*(i+starti))) for i in range(SIZE-1)]]
+    
+    # At r = 0, (1/R)dC/dR -> 2(d^2C/dR^2):
+    a1_diags[1][0] = (1.0+6.0*ura)
+    b1_diags[1][0] = (1.0+6.0*urb)
+    a1_diags[2][0] = -3.0*ura
+    b1_diags[2][0] = -3.0*urb
 
+
+    if row <= ZPILL_idx:
         # R Boundary conditions for the side of the pillar
         a1_diags[1][0] += aka1*p1
         b1_diags[1][0] += bkb1*p1
         # boundary conditions at rd (dC/dr = 0)
-        a1_diags[1][SIZE-1] -= ura*(1+1/(2*(SIZE+starti+1)))
-        b1_diags[1][SIZE-1] -= urb*(1+1/(2*(SIZE+starti+1)))
+        a1_diags[1][SIZE-1] -= ura*(1+1/(2*(SIZE+starti)))
+        b1_diags[1][SIZE-1] -= urb*(1+1/(2*(SIZE+starti)))
         # The submatrix for the reduced species
         a2_diags = [aka2*p1 if i == 0 else 0 for i in range(SIZE)]
         b2_diags = [bkb2*p1 if i == 0 else 0 for i in range(SIZE)]
     else:
         # The diagonal elements for the matrix to the right of the electrode.
-        # On the cylinder (1/R)dC/dR -> 2(d^2C/dR^2)
-        a1_diags = [[-3*ura for i in range(SIZE-1)],[1.+6.0*ura for i in range(SIZE)],[-ura*3 for i in range(SIZE-1)]]
-        b1_diags = [[-3*urb for i in range(SIZE-1)],[1.+6.0*urb for i in range(SIZE)],[-urb*3 for i in range(SIZE-1)]]
         # R Boundary conditions for the side of the pillar
-        a1_diags[1][0] -= 3*ura
-        b1_diags[1][0] -= 3*urb
+        a1_diags[1][0] -= p1*ura
+        b1_diags[1][0] -= p1*urb
         # boundary conditions at the rd (dC/dr = 0)
-        a1_diags[1][SIZE-1] -= ura*3
-        b1_diags[1][SIZE-1] -= urb*3
+        a1_diags[1][SIZE-1] -= ura*(1+1/(2*(SIZE+starti)))
+        b1_diags[1][SIZE-1] -= urb*(1+1/(2*(SIZE+starti)))
                 
     
     A1 = diags(a1_diags,[-1,0,1])
@@ -441,10 +444,10 @@ def di(A,B, current_i,E):
         start = 0
     do = np.zeros(SIZE,dtype=np.float32)
     dr = np.zeros(SIZE,dtype=np.float32)
-    u12a = (1.0 - 6.0*ura) if current_i <= RPILL_idx else (1.0 - 2.0*ura)
-    u12b = (1.0 - 6.0*urb) if current_i <= RPILL_idx else (1.0 - 2.0*urb)
-    p1 = 3 if current_i <= RPILL_idx else 1 - 1/(2*(current_i + 1))
-    p2 = 3 if current_i <= RPILL_idx else 1 + 1/(2*(current_i + 1))
+    u12a = (1.0 - 6.0*ura) if current_i == 0 else (1.0 - 2.0*ura)
+    u12b = (1.0 - 6.0*urb) if current_i == 0 else (1.0 - 2.0*urb)
+    p1 = 3 if current_i ==0 else 1 - 1/(2*(current_i + 1))
+    p2 = 3 if current_i ==0 else 1 + 1/(2*(current_i + 1))
     
     for j in range (0,SIZE):
         jj = j + start
