@@ -24,7 +24,7 @@ clear = lambda: os.system('cls')
 def getRdHCP(d): return np.sqrt(np.sqrt(3.)/(2.*np.pi))*d
 
 rpill = 5           # The radius of the pillar
-zpill = 25.0        # The height of the pillar
+zpill = 125.0        # The height of the pillar
 d  = 10/np.sqrt(np.sqrt(3.)/(2.*np.pi))           # The hcp nearest neighbour distance between pillars
 tmax = 1            # The time length of the simulation
 rd = getRdHCP(d)    # The radius of the circle of equivalent area
@@ -66,7 +66,7 @@ TMAX = tmax*tnorm
 ZMAX = 6*np.sqrt(TMAX)
 RMAX = RD
 lsim_r = RMAX*rpill
-lsim = lsim
+lsim = lsim if lsim < ZMAX*rpill else ZMAX*rpill
 Apill = np.pi*(RD**2 + 2.0*(RPILL*ZPILL))
 Aproj = np.pi*(RD**2)
 Area = Aproj*rpill*rpill
@@ -77,7 +77,7 @@ K0NORM = k0*(rpill*1e-4/Do) #
 # Mesh density = 
 #==============================================================================
 T = 50*50               # The number of time steps
-N = int(np.sqrt(T)*6)   # The number of points in the z direction
+N = int(np.sqrt(T)*6)  # The number of points in the z direction
 M = int(1.4*N*RMAX/ZMAX)    # The number of points in the r direction
 
 hr = RMAX/M             # The delta r
@@ -148,13 +148,13 @@ snum = 1
 time = 0
 scnt = 1
 while time < tmax:
-    tn = tn*2
     snum = int(tn/dt)
     time = snum*dt/tnorm
     if time < tmax:
         snapshot_number.append(snum)
         print ('snapshot_%d at t = %.4f' % (scnt, time))
     scnt += 1
+    tn = tn*2
 print()
 snapshot_number = np.array(snapshot_number,dtype=np.int)
 
@@ -270,7 +270,7 @@ def getCurrent(U,V):
     
     i_side = (hr*(RPILL_idx+1))*simps(dcx_side,dx=hr)
     
-    cd = 2*np.pi*ne*F_CONST*(Do*1e+4/rpill)*o_bulk*(i_top + i_base + i_side)
+    cd = 2*np.pi*ne*F_CONST*(Do*1e+4/rpill)*o_bulk*(i_top + i_base + i_side)#*Apill/Aproj
     
     return cd#2*np.pi*ne*F_CONST*o_bulk*Do*(i_top + i_base + i_side)*1e+4/(Aproj*rpill)
              
@@ -305,14 +305,13 @@ def getA(row,E):
     else:
         SIZE = M
         starti = 1
-    p1 = 3.0#(1-1/(2*starti)) if row <= ZPILL_idx else 3.0
     aka1 = -ura*ka1
     aka2 = -ura*ka2
     bkb1 = -urb*kb1
     bkb2 = -urb*kb2
     # The diagonal elements for the matrix to the right of the electrode
-    a1_diags = [[-ura*(1-1/(2*(i+2))) for i in range(SIZE-1)],[1.+2.0*ura for i in range(SIZE)],[-ura*(1+1/(2*(i+1))) for i in range(SIZE-1)]]
-    b1_diags = [[-urb*(1-1/(2*(i+2))) for i in range(SIZE-1)],[1.+2.0*urb for i in range(SIZE)],[-urb*(1+1/(2*(i+1))) for i in range(SIZE-1)]]
+    a1_diags = [[-ura*(1-1/(2*(i+starti+1))) for i in range(SIZE-1)],[1.+2.0*ura for i in range(SIZE)],[-ura*(1+1/(2*(i+starti))) for i in range(SIZE-1)]]
+    b1_diags = [[-urb*(1-1/(2*(i+starti+1))) for i in range(SIZE-1)],[1.+2.0*urb for i in range(SIZE)],[-urb*(1+1/(2*(i+starti))) for i in range(SIZE-1)]]
     
     # At r = 0, (1/R)dC/dR -> 2(d^2C/dR^2):
     a1_diags[1][0] = (1.0+6.0*ura)
@@ -323,22 +322,22 @@ def getA(row,E):
 
     if row <= ZPILL_idx:
         # R Boundary conditions for the side of the pillar
-        a1_diags[1][0] += aka1*p1
-        b1_diags[1][0] += bkb1*p1
+        a1_diags[1][0] += aka1*3
+        b1_diags[1][0] += bkb1*3
         # boundary conditions at rd (dC/dr = 0)
-        a1_diags[1][SIZE-1] -= ura*(1+1/(2*(SIZE)))
-        b1_diags[1][SIZE-1] -= urb*(1+1/(2*(SIZE)))
+        a1_diags[1][SIZE-1] -= ura*(1+1/(2*(SIZE+starti)))
+        b1_diags[1][SIZE-1] -= urb*(1+1/(2*(SIZE+starti)))
         # The submatrix for the reduced species
-        a2_diags = [aka2*p1 if i == 0 else 0 for i in range(SIZE)]
-        b2_diags = [bkb2*p1 if i == 0 else 0 for i in range(SIZE)]
+        a2_diags = [aka2*3 if i == 0 else 0 for i in range(SIZE)]
+        b2_diags = [bkb2*3 if i == 0 else 0 for i in range(SIZE)]
     else:
         # The diagonal elements for the matrix to the right of the electrode.
         # R Boundary conditions for the side of the pillar
-        a1_diags[1][0] -= p1*ura
-        b1_diags[1][0] -= p1*urb
+        a1_diags[1][0] -= 3*ura
+        b1_diags[1][0] -= 3*urb
         # boundary conditions at the rd (dC/dr = 0)
-        a1_diags[1][SIZE-1] -= ura*(1+1/(2*(SIZE)))
-        b1_diags[1][SIZE-1] -= urb*(1+1/(2*(SIZE)))
+        a1_diags[1][SIZE-1] -= ura*(1+1/(2*(SIZE+starti)))
+        b1_diags[1][SIZE-1] -= urb*(1+1/(2*(SIZE+starti)))
                 
     
     A1 = diags(a1_diags,[-1,0,1])
@@ -642,9 +641,9 @@ for k in range(1,T+1):
         time_j.append(t_)
         cot_ = ne*F_CONST*o_bulk*np.sqrt(Do/(np.pi*t_))
         cur = getCurrent(U1,V1)
-        qisim = cur*dt*mod_cpoints/tnorm
+        qisim = cur*dt*mod_cpoints*Apill/tnorm
         Qsim += qisim
-        qicott = cot_*dt*mod_cpoints/tnorm
+        qicott = cot_*dt*mod_cpoints*Aproj/tnorm
         Qcott += qicott
         charge.append(Qsim)
         charge_cot.append(Qcott)
