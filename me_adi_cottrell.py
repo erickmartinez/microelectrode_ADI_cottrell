@@ -85,8 +85,11 @@ hz = ZMAX/N             # The delta z
 dt = TMAX/T             # The delta t
 DOR = Do/Dr
 DRO = Dr/Do
-FO = Do/hr
-FR = Dr/hr
+FO_R = Do/hr
+FR_R = Dr/hr
+FO_Z = Do/hz
+FR_Z = Dr/hz
+
 #==============================================================================
 # The normalized FD coefficients
 #==============================================================================
@@ -214,17 +217,17 @@ def zero_flux_r(A,B,idr,idz,k0_,E,sp=1):
     global TEMP
     global DOR
     global DRO
-    global FO
-    global FR
-    kf = get_kf(E,E0,k0_,TEMP,alpha)
-    kb = get_kb(E,E0,k0_,TEMP,alpha)
+    global FO_R
+    global FR_R
+    kf = get_kf(E,E0,k0,TEMP,alpha)
+    kb = get_kb(E,E0,k0,TEMP,alpha)
     if sp == 1:
-        ka1 = (FO + DOR*kb)/(FO+kf+DOR*kb)
-        ka2 = (kb)/(FO+kf+DOR*kb)
+        ka1 = (FO_R + DOR*kb)/(FO_R+kf+DOR*kb)
+        ka2 = (kb)/(FO_R+kf+DOR*kb)
         u0 = ka1*A[idr+1][idz] + ka2*B[idr+1][idz]
     else:
-        kb1 = (FR + DRO*kf)/(FR+kb+DRO*kf)
-        kb2 = (kf)/(FR+kb+DRO*kf)
+        kb1 = (FR_R + DRO*kf)/(FR_R+kb+DRO*kf)
+        kb2 = (kf)/(FR_R+kb+DRO*kf)
         u0 = kb1*B[idr+1][idz] + kb2*A[idr+1][idz]
     return u0
 
@@ -234,19 +237,19 @@ def zero_flux_z(A,B,idr,idz,k0_,E,sp=1):
     global E0
     global alpha
     global TEMP
-    kf = get_kf(E,E0,k0_,TEMP,alpha)
-    kb = get_kb(E,E0,k0_,TEMP,alpha)
+    global FO_Z
+    global FR_Z
+    kf = get_kf(E,E0,k0,TEMP,alpha)
+    kb = get_kb(E,E0,k0,TEMP,alpha)
     DOR = Do/Dr
     DRO = Dr/Do
-    FO = Do/hz
-    FR = Dr/hz
     if sp == 1:
-        ka1 = (FO + DOR*kb)/(FO + kf+ DOR*kb)
-        ka2 = (kb)/(FO + kf+ DOR*kb)
+        ka1 = (FO_Z + DOR*kb)/(FO_Z + kf+ DOR*kb)
+        ka2 = (kb)/(FO_Z + kf+ DOR*kb)
         u0 = ka1*A[idr][idz+1] + ka2*B[idr][idz+1]
     else:
-        kb1 = (FR + DRO*kf)/(FR + kb +DRO*kf)
-        kb2 = (kf)/(FR + kb +DRO*kf)
+        kb1 = (FR_Z + DRO*kf)/(FR_Z + kb +DRO*kf)
+        kb2 = (kf)/(FR_Z + kb +DRO*kf)
         u0 = kb1*B[idr][idz+1] + kb2*A[idr][idz+1]
     return u0
     
@@ -270,7 +273,7 @@ def getCurrent(U,V):
     
     i_side = (hr*(RPILL_idx+1))*simps(dcx_side,dx=hr)
     
-    cd = 2*np.pi*ne*F_CONST*(Do*1e+4/rpill)*o_bulk*(i_top + i_base + i_side)#*Apill/Aproj
+    cd = 2*np.pi*ne*F_CONST*(Do*1e+4/rpill)*o_bulk*(i_top + i_base + i_side)*Apill/Aproj
     
     return cd#2*np.pi*ne*F_CONST*o_bulk*Do*(i_top + i_base + i_side)*1e+4/(Aproj*rpill)
              
@@ -282,20 +285,22 @@ def getA(row,E):
     global K0
     global DOR
     global DRO
-    global FO
-    global FR
+    global FO_R
+    global FR_R
     global ura
     global urb
-    kf = get_kf(E,E0,k0)
-    kb = get_kb(E,E0,k0)
+    global TEMP
+    global alpha
+    kf = get_kf(E,E0,k0,TEMP,alpha)
+    kb = get_kb(E,E0,k0,TEMP,alpha)
 
     # Use the zero-flux boundary condition for the electrode surface
     # a(i-1) = ka1*a(i+1) + ka2*b(i+1)
     # b(i-1) = kb1*a(i+1) + kb2*b(i+1)
-    ka1 = (FO + DOR*kb)/(FO+kf+DOR*kb)
-    ka2 = (kb)/(FO+kf+DOR*kb)
-    kb1 = (FR + DRO*kf)/(FR + kb +DRO*kf)
-    kb2 = (kf)/(FR + kb +DRO*kf)
+    ka1 = (FO_R + DOR*kb)/(FO_R+kf+DOR*kb)
+    ka2 = (kb)/(FO_R+kf+DOR*kb)
+    kb1 = (FR_R + DRO*kf)/(FR_R + kb +DRO*kf)
+    kb2 = (kf)/(FR_R + kb +DRO*kf)
     
     # Two different matrices, one for the region to the right of the electrode
     # and the other for the region above it
@@ -357,17 +362,20 @@ def getD(col,E):
     global k0
     global DOR
     global DRO
-    global FO
-    global FR
+    global FO_Z
+    global FR_Z
     global ura
     global urb
-    kf = get_kf(E,E0,k0)
-    kb = get_kb(E,E0,k0)
+    global K0NORM
+    global TEMP
+    global alpha
+    kf = get_kf(E,E0,k0,TEMP,alpha)
+    kb = get_kb(E,E0,k0,TEMP,alpha)
     
-    ka1 = (FO + DOR*kb)/(FO+kf+DOR*kb)
-    ka2 = (kb)/(FO+kf+DOR*kb)
-    kb1 = (FR + DRO*kf)/(FR + kb +DRO*kf)
-    kb2 = (kf)/(FR + kb +DRO*kf)
+    ka1 = (FO_Z + DOR*kb)/(FO_Z+kf+DOR*kb)
+    ka2 = (kb)/(FO_Z+kf+DOR*kb)
+    kb1 = (FR_Z + DRO*kf)/(FR_Z + kb +DRO*kf)
+    kb2 = (kf)/(FR_Z + kb +DRO*kf)
     aka1 = -uza*ka1
     aka2 = -uza*ka2
     bkb1 = -uzb*kb1
@@ -662,7 +670,7 @@ for k in range(1,T+1):
     if (k == snapshot_number[contour_n]):
         t_ = dt*k/tnorm
 #        print ('snapshot_%d at t = %.4f' % (contour_n, t_))
-        snapshot_c.append(np.transpose(U1))
+        snapshot_c.append(np.transpose(np.copy(U1)))
         snapshot_t.append(t_)
         contour_n = contour_n + 1 if contour_n < len(snapshot_number)-1 else contour_n
     
@@ -724,7 +732,7 @@ cottrell = 1000*ne*F_CONST*o_bulk*np.sqrt(Do/(np.pi*time_j))
 iv_plot = ax3.loglog(time_j,cottrell,label='Cottrell')
 
 ax3.set_xlabel(r'Time (s)',fontweight='bold',fontsize=16)
-ax3.set_ylabel(r'J (mA $\mathregular{cm^{-2}}$)',fontweight='bold',fontsize=16)
+ax3.set_ylabel(r'I (mA $\mathregular{cm^{-2}}$)',fontweight='bold',fontsize=16)
 ax3.yaxis.set_major_formatter(xfmt)
 ax3.xaxis.set_major_formatter(xfmt)
 leg = ax3.legend(loc='upper right',prop={'family':'Arial','size':10},frameon=False)
